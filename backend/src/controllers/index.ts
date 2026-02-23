@@ -1,0 +1,6 @@
+export * as authController from "./auth"
+export * as companyController from "./company"
+export * as userController from "./user"
+export * as productController from "./product"
+export * as billController from "./bill"
+export * as categoryController from "./category"
