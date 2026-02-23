@@ -9,7 +9,7 @@ const app = express();
 const defaultAllowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
-  "https://hk-bhupendra-doctor-billing.vercel.app/",
+  "https://hk-bhupendra-doctor-billing.vercel.app",
 ];
 const envAllowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
   .split(",")
