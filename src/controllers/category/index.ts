@@ -112,32 +112,36 @@ export const get_all_category = async (req, res) => {
   reqInfo(req)
   try {
     const { page, limit, search, addedBy, sortBy, order, medicalStoreId, isActive } = req.query
-    const pageNo = parseInt(page) || 1
-    const limitNo = parseInt(limit ) || 10
-    const query: any = buildRoleQuery(req.user.role, req.user._id, medicalStoreId as string, req.user.medicalStoreId)
+    let options: any = { lean: true }
 
-    if (req.user.role === ROLES.admin && addedBy && mongoose.Types.ObjectId.isValid(addedBy as string)) query.userId = addedBy
-    if (isActive !== undefined) query.isActive = String(isActive) === "true"
-    if (search) query.$or = [{ name: { $regex: search, $options: "si" } }]
+    let criteria: any = buildRoleQuery(req.user.role, req.user._id, medicalStoreId as string, req.user.medicalStoreId)
 
-    const options: any = {
-      sort: sortBy === "addedBy" ? { userId: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 } : { createdAt: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 },
-      skip: (pageNo - 1) * limitNo,
-      limit: limitNo
+    if (req.user.role === ROLES.admin && addedBy && mongoose.Types.ObjectId.isValid(addedBy as string)) criteria.userId = addedBy
+    if (isActive !== undefined) criteria.isActive = String(isActive) === "true"
+    if (search) criteria.$or = [{ name: { $regex: search, $options: "si" } }]
+
+    if (sortBy) {
+      const safeSortBy = sortBy === "name" ? "name" : "createdAt"
+      options.sort = { [safeSortBy]: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 }
     }
 
-    const categoriesRaw: any = await getData(categoryModel, query, {}, options)
+    if (page && limit) {
+      options.skip = (parseInt(page) - 1) * parseInt(limit)
+      options.limit = parseInt(limit)
+    }
+
+    const categoriesRaw: any = await getData(categoryModel, criteria, {}, options)
     const categoriesPopulated: any = await categoryModel.populate(categoriesRaw, [{ path: "userId", select: "name email" }])
-    const total = await countData(categoryModel, query)
+    const total = await countData(categoryModel, criteria)
     const data = categoriesPopulated.map((c: any) => (typeof c.toObject === "function" ? c.toObject() : c))
 
     return sendSuccess(res, {
       data,
       pagination: {
-        page: pageNo,
-        limit: limitNo,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        totalPages: Math.ceil(total / limitNo)
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     }, responseMessage.getDataSuccess("categories"))
   } catch (err) {

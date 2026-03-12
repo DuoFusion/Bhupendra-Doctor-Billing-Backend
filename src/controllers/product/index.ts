@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { userModel, productModel } from "../../database";
 import { joiValidationOptions, productValidation } from "../../validation";
 import { sendSuccess, sendError, resolveUserMedicalStoreId, applyMedicalStoreScope, reqInfo, titleCase } from "../../helper";
-import { getData, getFirstMatch, countData, createData, updateData, findOneAndPopulate,} from "../../helper/database_service";
+import { getData, getFirstMatch, countData, createData, updateData, findOneAndPopulate, } from "../../helper/database_service";
 
 // ================= Add New Product =================
 export const add_product = async (req, res) => {
@@ -127,37 +127,41 @@ export const delete_product_by_id = async (req, res) => {
 export const get_all_product = async (req, res) => {
   reqInfo(req)
   try {
-    const { page, limit, search, category, billable, sortBy, order, isActive } = req.query
-    const pageNo = parseInt(page) || 1
-    const limitNo = parseInt(limit) || 10
-    const query: any = { isDeleted: false }
+    const { page, limit, search, category, sortBy, order, isActive } = req.query
 
-    applyMedicalStoreScope(req, query)
-    if (category) query.category = category
-    if (isActive !== undefined) query.isActive = String(isActive) === "true"
+    let criteria: any = { isDeleted: false }, options: any = { lean: true }
+
+    applyMedicalStoreScope(req, criteria)
+    if (category) criteria.category = category
+    if (isActive !== undefined) criteria.isActive = String(isActive) === "true"
     if (search) {
-      const regex = new RegExp(String(search), "i")
-      query.$or = [{ name: regex }, { category: regex }]
+      criteria.$or = [
+        { name: { $regex: search, $options: "si" } },
+        { category: { $regex: search, $options: "si" } }
+      ]
     }
 
-    const safeSortBy = sortBy === "name" ? "name" : "createdAt"
-    const options: any = {
-      sort: { [safeSortBy]: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 },
-      skip: (pageNo - 1) * limitNo,
-      limit: limitNo
+    if (sortBy) {
+      const safeSortBy = sortBy === "name" ? "name" : "createdAt"
+      options.sort = { [safeSortBy]: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 }
     }
 
-    const productsRaw: any = await getData(productModel, query, {}, options)
+    if (page && limit) {
+      options.skip = (parseInt(page) - 1) * parseInt(limit)
+      options.limit = parseInt(limit)
+    }
+
+    const productsRaw: any = await getData(productModel, criteria, {}, options)
     const products = await productModel.populate(productsRaw, [{ path: "userId", select: "name email role" }])
-    const total = await countData(productModel, query)
+    const total = await countData(productModel, criteria)
 
     return sendSuccess(res, {
       products,
       pagination: {
-        page: pageNo,
-        limit: limitNo,
+        page: page,
+        limit: limit,
         total,
-        totalPages: Math.ceil(total / limitNo)
+        totalPages: Math.ceil(total / parseInt(limit || 10))
       }
     }, responseMessage.getDataSuccess("products"))
   } catch (error) {

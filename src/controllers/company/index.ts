@@ -22,7 +22,7 @@ export const add_company = async (req, res) => {
     if (req.user.role === ROLES.admin) {
       if (!value.userId) return sendError(res, status_code.BAD_REQUEST, responseMessage.customMessage("please select user"));
 
-      const selectedUser: any = await userModel.findOne( { _id: value.userId, isDeleted: false, role: { $ne: ROLES.admin } }, { _id: 1, medicalStoreId: 1, medicalStoreIds: 1 });
+      const selectedUser: any = await userModel.findOne({ _id: value.userId, isDeleted: false, role: { $ne: ROLES.admin } }, { _id: 1, medicalStoreId: 1, medicalStoreIds: 1 });
       if (!selectedUser) return sendError(res, status_code.BAD_REQUEST, responseMessage.getDataNotFound("selected user"));
 
       value.userId = selectedUser._id;
@@ -139,48 +139,42 @@ export const get_all_company = async (req, res) => {
 
   try {
     const { page, limit, search, addedBy, sortBy, order, isActive } = req.query
-    const pageNo = parseInt(page) || 1
-    const limitNo = parseInt(limit) || 10
-    const query: any = { isDeleted: false }
+    let criteria: any = { isDeleted: false }, options: any = { lean: true }
 
-    applyMedicalStoreScope(req, query, true)
+    applyMedicalStoreScope(req, criteria, true)
 
     if (req.user.role === ROLES.admin && addedBy && mongoose.Types.ObjectId.isValid(addedBy as string)) {
-      query.userId = new mongoose.Types.ObjectId(addedBy as string)
+      criteria.userId = new mongoose.Types.ObjectId(addedBy as string)
     }
 
-    if (isActive !== undefined) query.isActive = String(isActive) === "true"
+    if (isActive !== undefined) criteria.isActive = String(isActive) === "true"
 
     if (search) {
-      query.$or = [{ name: { $regex: search, $options: "si" } }]
-      if (req.user.role === ROLES.admin) {
-        const users: any = await getData(
-          userModel,
-          { isDeleted: false, $or: [{ name: { $regex: search, $options: "si" } }, { email: { $regex: search, $options: "si" } }] },
-          { _id: 1 }
-        )
-        if (users.length) query.$or.push({ userId: { $in: users.map((u: any) => u._id) } })
-      }
+      criteria.$or = [
+        { name: { $regex: search, $options: "si" } },
+        { email: { $regex: search, $options: 'si' } },
+      ]
     }
 
-    const options: any = {
-      sort: sortBy === "addedBy" ? { userId: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 } : { createdAt: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 },
-      skip: (pageNo - 1) * limitNo,
-      limit: limitNo
+    options.sort = sortBy === "addedBy" ? { userId: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 } : { createdAt: String(order || "desc").toLowerCase() === "asc" ? 1 : -1 }
+
+    if (page && limit) {
+      options.skip = (parseInt(page) - 1) * parseInt(limit)
+      options.limit = parseInt(limit)
     }
 
-    const companiesRaw: any = await getData(companyModel, query, {}, options)
+    const companiesRaw: any = await getData(companyModel, criteria, {}, options)
     const companies: any = await companyModel.populate(companiesRaw, [{ path: "userId", select: "name email" }])
-    const total = await countData(companyModel, query)
+    const total = await countData(companyModel, criteria)
     const data = companies.map((c: any) => (typeof c.toObject === "function" ? c.toObject() : c))
 
     return sendSuccess(res, {
       data,
       pagination: {
-        page: pageNo,
-        limit: limitNo,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        totalPages: Math.ceil(total / limitNo)
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     }, responseMessage.getDataSuccess("companies"))
   } catch (err) {

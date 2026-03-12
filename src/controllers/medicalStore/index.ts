@@ -3,7 +3,7 @@ import { responseMessage, status_code } from "../../common";
 import { storeModel } from "../../database";
 import { reqInfo, sendError, sendSuccess } from "../../helper";
 import { joiValidationOptions, medicalStoreValidation } from "../../validation";
-import {getData,getFirstMatch,createData,countData,updateData, } from "../../helper/database_service";
+import { getData, getFirstMatch, createData, countData, updateData, } from "../../helper/database_service";
 
 const ObjectId = mongoose.Types.ObjectId;
 
@@ -24,7 +24,7 @@ const buildSignaturePayload = (fileName: string) => ({
   mimetype: "",
 });
 
-const emptySignaturePayload = () => ({ path: "",filename: "", originalName: "",size: 0,mimetype: "",});
+const emptySignaturePayload = () => ({ path: "", filename: "", originalName: "", size: 0, mimetype: "", });
 
 // ================= Add New Medical Store =================
 export const add_medical_store = async (req, res) => {
@@ -33,7 +33,7 @@ export const add_medical_store = async (req, res) => {
     const { error, value } = medicalStoreValidation.addMedicalStoreValidation.validate(req.body, joiValidationOptions)
     if (error) return sendError(res, status_code.BAD_REQUEST, error.details[0].message)
 
-    const existing = await getFirstMatch(storeModel, { name: { $regex: `^${value.name.trim()}$`, $options: "si" }, sDeleted: false,})
+    const existing = await getFirstMatch(storeModel, { name: { $regex: `^${value.name.trim()}$`, $options: "si" }, sDeleted: false, })
     if (existing) return sendError(res, status_code.BAD_REQUEST, responseMessage.dataAlreadyExist("medical store"))
 
     value.signatureImg = extractFileNameFromValue(value.signatureImg) ? buildSignaturePayload(extractFileNameFromValue(value.signatureImg)) : emptySignaturePayload()
@@ -91,23 +91,28 @@ export const get_all_medical_store = async (req, res) => {
   reqInfo(req)
   try {
     const { page, limit, search, isActive } = req.query
-    const pageNo = parseInt(page as string) || 1
-    const limitNo = parseInt(limit as string) || 10
-    const query: any = { isDeleted: false }
+    let options: any = { lean: true }
 
-    if (search) query.name = { $regex: search, $options: "si" }
-    if (isActive !== undefined) query.isActive = String(isActive) === "true"
+    let criteria: any = { isDeleted: false }
 
-    const total = await countData(storeModel, query)
-    const stores = await getData(storeModel, query, {}, { sort: { createdAt: -1 }, skip: (pageNo - 1) * limitNo, limit: limitNo })
+    if (search) criteria.name = { $regex: search, $options: "si" }
+    if (isActive !== undefined) criteria.isActive = String(isActive) === "true"
+
+    if (page && limit) {
+      options.skip = (parseInt(page) - 1) * parseInt(limit)
+      options.limit = parseInt(limit)
+    }
+
+    const total = await countData(storeModel, criteria)
+    const stores = await getData(storeModel, criteria, {}, options)
 
     return sendSuccess(res, {
       stores,
       pagination: {
-        page: pageNo,
-        limit: limitNo,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        totalPages: Math.ceil(total / limitNo)
+        totalPages: Math.ceil(total / parseInt(limit))
       },
     }, responseMessage.getDataSuccess("medical stores"))
   } catch (err) {
