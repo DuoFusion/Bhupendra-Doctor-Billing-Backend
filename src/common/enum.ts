@@ -19,3 +19,7 @@ export const PAYMENT_METHOD = {
   credit: "Credit"
 };
 
+export const FINANCIAL_TYPE = {
+  income: "Income",
+  expense: "Expense"
+};

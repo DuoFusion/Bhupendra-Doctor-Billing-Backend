@@ -9,6 +9,7 @@ import { authRouter } from "./auth";
 import { userRouter } from "./user";
 import { medicalStoreRouter } from "./medicalStore";
 import { dashboardRouter } from "./dashboard";
+import { financialRouter } from "./financial";
 
 const router = express.Router();
 
@@ -23,5 +24,6 @@ router.use("/bill", billRouter);
 router.use("/category", CatergoryRouter);
 router.use("/medical-store", medicalStoreRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/financial", financialRouter);
 
 export { router };
