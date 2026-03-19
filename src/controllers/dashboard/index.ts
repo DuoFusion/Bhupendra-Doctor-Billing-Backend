@@ -81,7 +81,8 @@ export const get_dashboard_stats = async (req, res) => {
     const paidAmount = paidAmountAgg?.[0]?.total || 0;
     const dueAmount = dueAmountAgg?.[0]?.total || 0;
     // const financialAmount = financialAmountAgg?.[0]?.total || 0;
-    const financialAmount = (incomeAmountAgg?.[0]?.total || 0) - (expenseAmountAgg?.[0]?.total || 0);
+    // const financialAmount = (incomeAmountAgg?.[0]?.total || 0) - (expenseAmountAgg?.[0]?.total || 0);
+    const financialAmount = (paidAmountAgg?.[0]?.total || 0) + (expenseAmountAgg?.[0]?.total || 0) - (incomeAmountAgg?.[0]?.total || 0);
     const incomeAmount = incomeAmountAgg?.[0]?.total || 0;
     const expenseAmount = expenseAmountAgg?.[0]?.total || 0;
 
